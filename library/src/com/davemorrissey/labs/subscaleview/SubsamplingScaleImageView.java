@@ -101,8 +101,10 @@ public class SubsamplingScaleImageView extends View {
     public static final int ZOOM_FOCUS_CENTER = 2;
     /** Zoom in to and center the tapped point immediately without animating. */
     public static final int ZOOM_FOCUS_CENTER_IMMEDIATE = 3;
+    /** Disables zoom for a given feature such as double_tap_zoom such that it permits the user to override and include their own double-tap implementation*/
+    public static final int ZOOM_FOCUS_DISABLED = 4;
 
-    private static final List<Integer> VALID_ZOOM_STYLES = Arrays.asList(ZOOM_FOCUS_FIXED, ZOOM_FOCUS_CENTER, ZOOM_FOCUS_CENTER_IMMEDIATE);
+    private static final List<Integer> VALID_ZOOM_STYLES = Arrays.asList(ZOOM_FOCUS_FIXED, ZOOM_FOCUS_CENTER, ZOOM_FOCUS_CENTER_IMMEDIATE, ZOOM_FOCUS_DISABLED);
 
     /** Quadratic ease out. Not recommended for scale animation, but good for panning. */
     public static final int EASE_OUT_QUAD = 1;
@@ -901,6 +903,11 @@ public class SubsamplingScaleImageView extends View {
      * quick scale is enabled.
      */
     private void doubleTapZoom(PointF sCenter, PointF vFocus) {
+        // If doubleTapZoomStyle is disabled, then overwrite this behavior such that the user can implement their own double tap.
+        if (doubleTapZoomStyle == ZOOM_FOCUS_DISABLED) {
+            return;
+        }
+
         if (!panEnabled) {
             if (sRequestedCenter != null) {
                 // With a center specified from code, zoom around that point.
@@ -2397,6 +2404,13 @@ public class SubsamplingScaleImageView extends View {
      */
     public final float getScale() {
         return scale;
+    }
+
+    /**
+     * Returns the image matrix associated with the image's bitmap
+     */
+    public Matrix getImageMatrix() {
+        return matrix;
     }
 
     /**

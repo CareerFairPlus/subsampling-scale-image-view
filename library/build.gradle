@@ -1,6 +1,7 @@
 apply plugin: 'com.android.library'
+apply plugin: 'com.github.dcendents.android-maven'
 
-group = 'com.davemorrissey.labs'
+group = 'com.github.CareerFairPlus'
 archivesBaseName = 'subsampling-scale-image-view'
 version = '3.6.0'
 

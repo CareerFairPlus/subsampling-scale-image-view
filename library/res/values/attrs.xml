@@ -17,12 +17,12 @@ limitations under the License.
 <resources>
 
     <declare-styleable name="SubsamplingScaleImageView">
-        <attr name="src" format="reference"/>
         <attr name="assetName" format="string"/>
         <attr name="panEnabled" format="boolean"/>
         <attr name="zoomEnabled" format="boolean"/>
         <attr name="quickScaleEnabled" format="boolean"/>
         <attr name="tileBackgroundColor" format="color"/>
+        <attr name="srcDrawable" format="reference"/>
     </declare-styleable>
 
 </resources>

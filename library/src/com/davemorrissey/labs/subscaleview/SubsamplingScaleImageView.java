@@ -306,7 +306,7 @@ public class SubsamplingScaleImageView extends View {
         });
         // Handle XML attributes
         if (attr != null) {
-            TypedArray typedAttr = getContext().obtainStyledAttributes(attr, R.styleable.SubsamplingScaleImageView);
+            TypedArray typedAttr = context.getTheme().obtainStyledAttributes(attr, R.styleable.SubsamplingScaleImageView, 0 ,0);
 
             if (typedAttr.hasValue(R.styleable.SubsamplingScaleImageView_panEnabled)) {
                 setPanEnabled(typedAttr.getBoolean(R.styleable.SubsamplingScaleImageView_panEnabled, true));

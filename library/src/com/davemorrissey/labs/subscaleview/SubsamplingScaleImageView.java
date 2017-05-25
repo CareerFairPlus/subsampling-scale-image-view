@@ -110,8 +110,10 @@ public class SubsamplingScaleImageView extends View {
     public static final int EASE_OUT_QUAD = 1;
     /** Quadratic ease in and out. */
     public static final int EASE_IN_OUT_QUAD = 2;
+    /** Overshoot easing */
+    public static final int EASE_OVERSHOOT = 3;
 
-    private static final List<Integer> VALID_EASING_STYLES = Arrays.asList(EASE_IN_OUT_QUAD, EASE_OUT_QUAD);
+    private static final List<Integer> VALID_EASING_STYLES = Arrays.asList(EASE_IN_OUT_QUAD, EASE_OUT_QUAD, EASE_OVERSHOOT);
 
     /** Don't allow the image to be panned off screen. As much of the image as possible is always displayed, centered in the view when it is smaller. This is the best option for galleries. */
     public static final int PAN_LIMIT_INSIDE = 1;
@@ -2181,9 +2183,18 @@ public class SubsamplingScaleImageView extends View {
                 return easeInOutQuad(time, from, change, duration);
             case EASE_OUT_QUAD:
                 return easeOutQuad(time, from, change, duration);
+            case EASE_OVERSHOOT:
+                return easeOvershoot(time, from, change, duration);
             default:
                 throw new IllegalStateException("Unexpected easing type: " + type);
         }
+    }
+
+    private float easeOvershoot(long time, float from, float change, long duration) {
+        float progress = (float)time/(float)duration;
+        progress -= 1.0f;
+
+        return progress * progress + ((2.0f + 1) * progress + 2.0f) + 1.0f;
     }
 
     /**

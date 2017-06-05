@@ -121,8 +121,10 @@ public class SubsamplingScaleImageView extends View {
     public static final int PAN_LIMIT_OUTSIDE = 2;
     /** Allows the image to be panned until a corner reaches the center of the screen but no further. Useful when you want to pan any spot on the image to the exact center of the screen. */
     public static final int PAN_LIMIT_CENTER = 3;
+    /** Allows for custom pan limits*/
+    public static final int PAN_LIMIT_CUSTOM = 4;
 
-    private static final List<Integer> VALID_PAN_LIMITS = Arrays.asList(PAN_LIMIT_INSIDE, PAN_LIMIT_OUTSIDE, PAN_LIMIT_CENTER);
+    private static final List<Integer> VALID_PAN_LIMITS = Arrays.asList(PAN_LIMIT_INSIDE, PAN_LIMIT_OUTSIDE, PAN_LIMIT_CENTER, PAN_LIMIT_CUSTOM);
 
     /** Scale the image so that both dimensions of the image will be equal to or less than the corresponding dimension of the view. The image is then centered in the view. This is the default behaviour and best for galleries. */
     public static final int SCALE_TYPE_CENTER_INSIDE = 1;
@@ -286,6 +288,9 @@ public class SubsamplingScaleImageView extends View {
     //The logical density of the display
     private float density;
 
+    private int mHeightBound = 0;
+    private int mWidthBound = 0;
+
 
     public SubsamplingScaleImageView(Context context, AttributeSet attr) {
         super(context, attr);
@@ -304,24 +309,6 @@ public class SubsamplingScaleImageView extends View {
                 return true;
             }
         });
-        // Handle XML attributes
-        if (attr != null) {
-            TypedArray typedAttr = context.getTheme().obtainStyledAttributes(attr, R.styleable.SubsamplingScaleImageView, 0 ,0);
-
-            if (typedAttr.hasValue(R.styleable.SubsamplingScaleImageView_panEnabled)) {
-                setPanEnabled(typedAttr.getBoolean(R.styleable.SubsamplingScaleImageView_panEnabled, true));
-            }
-            if (typedAttr.hasValue(R.styleable.SubsamplingScaleImageView_zoomEnabled)) {
-                setZoomEnabled(typedAttr.getBoolean(R.styleable.SubsamplingScaleImageView_zoomEnabled, true));
-            }
-            if (typedAttr.hasValue(R.styleable.SubsamplingScaleImageView_quickScaleEnabled)) {
-                setQuickScaleEnabled(typedAttr.getBoolean(R.styleable.SubsamplingScaleImageView_quickScaleEnabled, true));
-            }
-            if (typedAttr.hasValue(R.styleable.SubsamplingScaleImageView_tileBackgroundColor)) {
-                setTileBackgroundColor(typedAttr.getColor(R.styleable.SubsamplingScaleImageView_tileBackgroundColor, Color.argb(0, 0, 0, 0)));
-            }
-            typedAttr.recycle();
-        }
 
         quickScaleThreshold = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20, context.getResources().getDisplayMetrics());
     }
@@ -1375,7 +1362,10 @@ public class SubsamplingScaleImageView extends View {
         float scaleWidth = scale * sWidth();
         float scaleHeight = scale * sHeight();
 
-        if (panLimit == PAN_LIMIT_CENTER && isReady()) {
+        if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
+            vTranslate.x = Math.max(vTranslate.x, mWidthBound - scaleWidth);
+            vTranslate.y = Math.max(vTranslate.y, mHeightBound - scaleHeight);
+        } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             vTranslate.x = Math.max(vTranslate.x, getWidth()/2 - scaleWidth);
             vTranslate.y = Math.max(vTranslate.y, getHeight()/2 - scaleHeight);
         } else if (center) {
@@ -1392,7 +1382,11 @@ public class SubsamplingScaleImageView extends View {
 
         float maxTx;
         float maxTy;
-        if (panLimit == PAN_LIMIT_CENTER && isReady()) {
+
+        if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
+            maxTx = Math.max(0, mWidthBound);
+            maxTy = Math.max(0, mHeightBound);
+        } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);
         } else if (center) {
@@ -2397,6 +2391,22 @@ public class SubsamplingScaleImageView extends View {
         int mX = getWidth()/2;
         int mY = getHeight()/2;
         return viewToSourceCoord(mX, mY);
+    }
+
+    public int getHeightBound() {
+        return mHeightBound;
+    }
+
+    public void setHeightBound(int heightBound) {
+        mHeightBound = heightBound;
+    }
+
+    public int getWidthBound() {
+        return mWidthBound;
+    }
+
+    public void setWidthBound(int widthBound) {
+        mWidthBound = widthBound;
     }
 
     /**

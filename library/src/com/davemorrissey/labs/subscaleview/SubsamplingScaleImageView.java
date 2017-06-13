@@ -1363,8 +1363,8 @@ public class SubsamplingScaleImageView extends View {
         float scaleHeight = scale * sHeight();
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            vTranslate.x = Math.max(vTranslate.x, mWidthBound -scaleWidth);
-            vTranslate.y = Math.max(vTranslate.y, mHeightBound - scaleHeight);
+            vTranslate.x = Math.max(vTranslate.x, getWidth() + mWidthBound -scaleWidth);
+            vTranslate.y = Math.max(vTranslate.y, getHeight() + mHeightBound - scaleHeight);
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             vTranslate.x = Math.max(vTranslate.x, getWidth()/2 - scaleWidth);
             vTranslate.y = Math.max(vTranslate.y, getHeight()/2 - scaleHeight);
@@ -1384,8 +1384,8 @@ public class SubsamplingScaleImageView extends View {
         float maxTy;
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            maxTx = Math.max(0, mWidthBound);
-            maxTy = Math.max(0, mHeightBound);
+            maxTx = Math.max(0, (mWidthBound + getWidth() - scaleWidth) * xPaddingRatio);
+            maxTy = Math.max(0, (mHeightBound + getHeight() - scaleHeight) * yPaddingRatio);
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);

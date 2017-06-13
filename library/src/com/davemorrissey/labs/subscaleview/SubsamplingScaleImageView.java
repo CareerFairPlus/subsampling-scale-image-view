@@ -1384,8 +1384,8 @@ public class SubsamplingScaleImageView extends View {
         float maxTy;
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            maxTx = Math.max(0, getWidth()/2);
-            maxTy = Math.max(0, getHeight()/2);
+            maxTx = Math.max(0, mHeightBound);
+            maxTy = Math.max(0, mHeightBound);
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);

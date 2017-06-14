@@ -1386,7 +1386,12 @@ public class SubsamplingScaleImageView extends View {
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
             maxTx = Math.max(0, getLeftBound());
-            maxTy = Math.max(0, getTopBound());
+            
+            if (getTopBound() == 0) {
+                maxTy = Math.max(0, (getHeight() - scaleHeight) * yPaddingRatio);
+            } else {
+                maxTy = Math.max(0, getTopBound());
+            }
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);

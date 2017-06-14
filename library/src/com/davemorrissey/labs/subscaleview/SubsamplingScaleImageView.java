@@ -288,9 +288,10 @@ public class SubsamplingScaleImageView extends View {
     //The logical density of the display
     private float density;
 
-    private int mHeightBound = 500;
-    private int mWidthBound = 0;
-
+    private int mLeftBound = 0;
+    private int mRightBound = 0;
+    private int mBottomBound = 0;
+    private int mTopBound = 0;
 
     public SubsamplingScaleImageView(Context context, AttributeSet attr) {
         super(context, attr);
@@ -1363,8 +1364,8 @@ public class SubsamplingScaleImageView extends View {
         float scaleHeight = scale * (sHeight());
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            vTranslate.x = Math.max(vTranslate.x, getWidth() - scaleWidth - mWidthBound);
-            vTranslate.y = Math.max(vTranslate.y, getHeight() - scaleHeight - mHeightBound);
+            vTranslate.x = Math.max(vTranslate.x, getWidth() - scaleWidth - getRightBound());
+            vTranslate.y = Math.max(vTranslate.y, getHeight() - scaleHeight - getBottomBound());
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             vTranslate.x = Math.max(vTranslate.x, getWidth()/2 - scaleWidth);
             vTranslate.y = Math.max(vTranslate.y, getHeight()/2 - scaleHeight);
@@ -1384,8 +1385,8 @@ public class SubsamplingScaleImageView extends View {
         float maxTy;
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            maxTx = Math.max(0, mWidthBound);
-            maxTy = Math.max(0, mHeightBound);
+            maxTx = Math.max(0, getLeftBound());
+            maxTy = Math.max(0, getTopBound());
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);
@@ -2393,20 +2394,36 @@ public class SubsamplingScaleImageView extends View {
         return viewToSourceCoord(mX, mY);
     }
 
-    public int getHeightBound() {
-        return mHeightBound;
+    public int getLeftBound() {
+        return mLeftBound;
     }
 
-    public void setHeightBound(int heightBound) {
-        mHeightBound = heightBound;
+    public void setLeftBound(int leftBound) {
+        mLeftBound = leftBound;
     }
 
-    public int getWidthBound() {
-        return mWidthBound;
+    public int getRightBound() {
+        return mRightBound;
     }
 
-    public void setWidthBound(int widthBound) {
-        mWidthBound = widthBound;
+    public void setRightBound(int rightBound) {
+        mRightBound = rightBound;
+    }
+
+    public int getBottomBound() {
+        return mBottomBound;
+    }
+
+    public void setBottomBound(int bottomBound) {
+        mBottomBound = bottomBound;
+    }
+
+    public int getTopBound() {
+        return mTopBound;
+    }
+
+    public void setTopBound(int topBound) {
+        mTopBound = topBound;
     }
 
     /**

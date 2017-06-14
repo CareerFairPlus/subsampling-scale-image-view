@@ -121,7 +121,7 @@ public class SubsamplingScaleImageView extends View {
     public static final int PAN_LIMIT_OUTSIDE = 2;
     /** Allows the image to be panned until a corner reaches the center of the screen but no further. Useful when you want to pan any spot on the image to the exact center of the screen. */
     public static final int PAN_LIMIT_CENTER = 3;
-    /** Allows for custom pan limits*/
+    /** Allows for custom pan limits**/
     public static final int PAN_LIMIT_CUSTOM = 4;
 
     private static final List<Integer> VALID_PAN_LIMITS = Arrays.asList(PAN_LIMIT_INSIDE, PAN_LIMIT_OUTSIDE, PAN_LIMIT_CENTER, PAN_LIMIT_CUSTOM);
@@ -288,7 +288,7 @@ public class SubsamplingScaleImageView extends View {
     //The logical density of the display
     private float density;
 
-    private int mHeightBound = 0;
+    private int mHeightBound = 500;
     private int mWidthBound = 0;
 
 
@@ -1360,11 +1360,11 @@ public class SubsamplingScaleImageView extends View {
         PointF vTranslate = sat.vTranslate;
         float scale = limitedScale(sat.scale);
         float scaleWidth = scale * sWidth();
-        float scaleHeight = scale * sHeight();
+        float scaleHeight = scale * (sHeight());
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            vTranslate.x = Math.max(vTranslate.x, getWidth() - scaleWidth);
-            vTranslate.y = Math.max(vTranslate.y, getWidth()/2 - scaleHeight);
+            vTranslate.x = Math.max(vTranslate.x, getWidth() - scaleWidth - mWidthBound);
+            vTranslate.y = Math.max(vTranslate.y, getHeight() - scaleHeight - mHeightBound);
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             vTranslate.x = Math.max(vTranslate.x, getWidth()/2 - scaleWidth);
             vTranslate.y = Math.max(vTranslate.y, getHeight()/2 - scaleHeight);
@@ -1384,7 +1384,7 @@ public class SubsamplingScaleImageView extends View {
         float maxTy;
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
-            maxTx = Math.max(0, mHeightBound);
+            maxTx = Math.max(0, mWidthBound);
             maxTy = Math.max(0, mHeightBound);
         } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);

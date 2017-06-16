@@ -18,7 +18,6 @@ package com.davemorrissey.labs.subscaleview;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -48,7 +47,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewParent;
 
-import com.davemorrissey.labs.subscaleview.R.styleable;
 import com.davemorrissey.labs.subscaleview.decoder.CompatDecoderFactory;
 import com.davemorrissey.labs.subscaleview.decoder.DecoderFactory;
 import com.davemorrissey.labs.subscaleview.decoder.ImageDecoder;
@@ -143,6 +141,9 @@ public class SubsamplingScaleImageView extends View {
     public static final int ORIGIN_FLING = 3;
     /** State change originated from a double tap zoom anim. */
     public static final int ORIGIN_DOUBLE_TAP_ZOOM = 4;
+
+    /** Delay before a fling operation can be engaged in from a 2 point zoom. */
+    public static final int MESSAGE_FLING_DELAY_MILLIS = 100;
 
     // Bitmap (preview or full image)
     private Bitmap bitmap;
@@ -269,9 +270,14 @@ public class SubsamplingScaleImageView extends View {
     // Long click listener
     private OnLongClickListener onLongClickListener;
 
-    // Long click handler
+    // Long click & fling handler
     private Handler handler;
     private static final int MESSAGE_LONG_CLICK = 1;
+
+    // Message for when fling should be turned back on
+    private static final int MESSAGE_HANDLE_FLING = 2;
+    private boolean shouldAllowFling = true;
+
 
     // Paint objects created once and reused for efficiency
     private Paint bitmapPaint;
@@ -306,6 +312,8 @@ public class SubsamplingScaleImageView extends View {
                     SubsamplingScaleImageView.super.setOnLongClickListener(onLongClickListener);
                     performLongClick();
                     SubsamplingScaleImageView.super.setOnLongClickListener(null);
+                } else if (message.what == MESSAGE_HANDLE_FLING) {
+                    shouldAllowFling = true;
                 }
                 return true;
             }
@@ -505,8 +513,8 @@ public class SubsamplingScaleImageView extends View {
 
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (panEnabled && readySent && vTranslate != null && e1 != null && e2 != null && (Math.abs(e1.getX() - e2.getX()) > 50 || Math.abs(e1.getY() - e2.getY()) > 50) && (Math.abs(velocityX) > 500 || Math.abs(velocityY) > 500) && !isZooming) {
-                    PointF vTranslateEnd = new PointF(vTranslate.x + (velocityX * 0.25f), vTranslate.y + (velocityY * 0.25f));
+                if (panEnabled && readySent && vTranslate != null && e1 != null && e2 != null && (Math.abs(e1.getX() - e2.getX()) > 50 || Math.abs(e1.getY() - e2.getY()) > 50) && (Math.abs(velocityX) > 500 || Math.abs(velocityY) > 500) && !isZooming && shouldAllowFling) {
+                    PointF vTranslateEnd = new PointF(vTranslate.x + (velocityX * 0.23f), vTranslate.y + (velocityY * 0.23f));
                     float sCenterXEnd = ((getWidth()/2) - vTranslateEnd.x)/scale;
                     float sCenterYEnd = ((getHeight()/2) - vTranslateEnd.y)/scale;
                     new AnimationBuilder(new PointF(sCenterXEnd, sCenterYEnd)).withEasing(EASE_OUT_QUAD).withPanLimited(false).withOrigin(ORIGIN_FLING).start();
@@ -829,6 +837,7 @@ public class SubsamplingScaleImageView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_2_UP:
+                shouldAllowFling = false;
                 handler.removeMessages(MESSAGE_LONG_CLICK);
                 if (isQuickScaling) {
                     isQuickScaling = false;
@@ -858,6 +867,7 @@ public class SubsamplingScaleImageView extends View {
                     }
                     // Trigger load of tiles now required
                     refreshRequiredTiles(true);
+                    handler.sendEmptyMessageDelayed(MESSAGE_HANDLE_FLING, MESSAGE_FLING_DELAY_MILLIS);
                     return true;
                 }
                 if (touchCount == 1) {
@@ -865,6 +875,7 @@ public class SubsamplingScaleImageView extends View {
                     isPanning = false;
                     maxTouchCount = 0;
                 }
+                handler.sendEmptyMessageDelayed(MESSAGE_HANDLE_FLING, MESSAGE_FLING_DELAY_MILLIS);
                 return true;
         }
         return false;
@@ -1386,7 +1397,7 @@ public class SubsamplingScaleImageView extends View {
 
         if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
             maxTx = Math.max(0, getLeftBound());
-            
+
             if (getTopBound() == 0) {
                 maxTy = Math.max(0, (getHeight() - scaleHeight) * yPaddingRatio);
             } else {

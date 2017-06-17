@@ -143,7 +143,9 @@ public class SubsamplingScaleImageView extends View {
     public static final int ORIGIN_DOUBLE_TAP_ZOOM = 4;
 
     /** Delay before a fling operation can be engaged in from a 2 point zoom. */
-    public static final int MESSAGE_FLING_DELAY_MILLIS = 100;
+    public static final int MESSAGE_FLING_DELAY_MILLIS = 200;
+    /** Distance threshold that a pinch must exceed to be considered a pinch. */
+    public static final int PINCH_THRESHOLD = 200;
 
     // Bitmap (preview or full image)
     private Bitmap bitmap;
@@ -298,6 +300,11 @@ public class SubsamplingScaleImageView extends View {
     private int mRightBound = 0;
     private int mBottomBound = 0;
     private int mTopBound = 0;
+    private float mSecEventX;
+    private float mSecEventY;
+    private float mPrimEventX;
+    private float mPrimEventY;
+    private float mPrimSecStartTouchDistance;
 
     public SubsamplingScaleImageView(Context context, AttributeSet attr) {
         super(context, attr);
@@ -671,6 +678,11 @@ public class SubsamplingScaleImageView extends View {
                         // Abort all gestures on second touch
                         maxTouchCount = 0;
                     }
+
+                    mSecEventX = event.getX(1);
+                    mSecEventY = event.getY(1);
+                    mPrimSecStartTouchDistance = distance(mPrimEventX, mSecEventX, mPrimEventY, mSecEventY);
+
                     // Cancel long click timer
                     handler.removeMessages(MESSAGE_LONG_CLICK);
                 } else if (!isQuickScaling) {
@@ -680,9 +692,15 @@ public class SubsamplingScaleImageView extends View {
 
                     // Start long click timer
                     handler.sendEmptyMessageDelayed(MESSAGE_LONG_CLICK, 600);
+
+                    mPrimEventX = event.getX(0);
+                    mPrimEventY = event.getY(0);
+
                 }
                 return true;
             case MotionEvent.ACTION_MOVE:
+
+                Log.d(TAG, "onTouchEventInternal: Move EVENT");
                 boolean consumed = false;
                 if (maxTouchCount > 0) {
                     if (touchCount >= 2) {
@@ -837,8 +855,19 @@ public class SubsamplingScaleImageView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_2_UP:
-                shouldAllowFling = false;
+                Log.d(TAG, "onTouchEventInternal: FINGER RELEASE");
                 handler.removeMessages(MESSAGE_LONG_CLICK);
+
+                if (event.getPointerCount() < 2) {
+                    mSecEventX = -1;
+                    mSecEventY = -1;
+                }
+
+                if (event.getPointerCount() < 1) {
+                    mPrimEventX = -1;
+                    mPrimEventY = -1;
+                }
+
                 if (isQuickScaling) {
                     isQuickScaling = false;
                     if (!quickScaleMoved) {
@@ -847,6 +876,17 @@ public class SubsamplingScaleImageView extends View {
                 }
                 if (maxTouchCount > 0 && (isZooming || isPanning)) {
                     if (isZooming && touchCount == 2) {
+                        float diffPrimX = mPrimEventX - event.getX(0);
+                        float diffPrimY = mPrimEventY - event.getY(0);
+
+                        float diffSecX = mSecEventX - event.getX(1);
+                        float diffSecY = mSecEventY - event.getY(1);
+
+                        float currentDistance = distance(event.getX(0), event.getX(1), event.getY(0), event.getY(1));
+
+                        if (Math.abs(currentDistance - mPrimSecStartTouchDistance) > PINCH_THRESHOLD && (diffPrimX * diffSecX  <= 0 || diffPrimY * diffSecY <= 0)) {
+                            shouldAllowFling = false;
+                        }
                         // Convert from zoom to pan with remaining touch
                         isPanning = true;
                         vTranslateStart.set(vTranslate.x, vTranslate.y);

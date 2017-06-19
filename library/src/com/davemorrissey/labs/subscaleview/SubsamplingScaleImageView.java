@@ -18,7 +18,6 @@ package com.davemorrissey.labs.subscaleview;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -48,7 +47,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewParent;
 
-import com.davemorrissey.labs.subscaleview.R.styleable;
 import com.davemorrissey.labs.subscaleview.decoder.CompatDecoderFactory;
 import com.davemorrissey.labs.subscaleview.decoder.DecoderFactory;
 import com.davemorrissey.labs.subscaleview.decoder.ImageDecoder;
@@ -110,8 +108,10 @@ public class SubsamplingScaleImageView extends View {
     public static final int EASE_OUT_QUAD = 1;
     /** Quadratic ease in and out. */
     public static final int EASE_IN_OUT_QUAD = 2;
+    /** Overshoot easing */
+    public static final int EASE_OVERSHOOT = 3;
 
-    private static final List<Integer> VALID_EASING_STYLES = Arrays.asList(EASE_IN_OUT_QUAD, EASE_OUT_QUAD);
+    private static final List<Integer> VALID_EASING_STYLES = Arrays.asList(EASE_IN_OUT_QUAD, EASE_OUT_QUAD, EASE_OVERSHOOT);
 
     /** Don't allow the image to be panned off screen. As much of the image as possible is always displayed, centered in the view when it is smaller. This is the best option for galleries. */
     public static final int PAN_LIMIT_INSIDE = 1;
@@ -119,8 +119,10 @@ public class SubsamplingScaleImageView extends View {
     public static final int PAN_LIMIT_OUTSIDE = 2;
     /** Allows the image to be panned until a corner reaches the center of the screen but no further. Useful when you want to pan any spot on the image to the exact center of the screen. */
     public static final int PAN_LIMIT_CENTER = 3;
+    /** Allows for custom pan limits**/
+    public static final int PAN_LIMIT_CUSTOM = 4;
 
-    private static final List<Integer> VALID_PAN_LIMITS = Arrays.asList(PAN_LIMIT_INSIDE, PAN_LIMIT_OUTSIDE, PAN_LIMIT_CENTER);
+    private static final List<Integer> VALID_PAN_LIMITS = Arrays.asList(PAN_LIMIT_INSIDE, PAN_LIMIT_OUTSIDE, PAN_LIMIT_CENTER, PAN_LIMIT_CUSTOM);
 
     /** Scale the image so that both dimensions of the image will be equal to or less than the corresponding dimension of the view. The image is then centered in the view. This is the default behaviour and best for galleries. */
     public static final int SCALE_TYPE_CENTER_INSIDE = 1;
@@ -139,6 +141,11 @@ public class SubsamplingScaleImageView extends View {
     public static final int ORIGIN_FLING = 3;
     /** State change originated from a double tap zoom anim. */
     public static final int ORIGIN_DOUBLE_TAP_ZOOM = 4;
+
+    /** Delay before a fling operation can be engaged in from a 2 point zoom. */
+    public static final int MESSAGE_FLING_DELAY_MILLIS = 200;
+    /** Distance threshold that a pinch must exceed to be considered a pinch. */
+    public static final int PINCH_THRESHOLD = 200;
 
     // Bitmap (preview or full image)
     private Bitmap bitmap;
@@ -265,9 +272,14 @@ public class SubsamplingScaleImageView extends View {
     // Long click listener
     private OnLongClickListener onLongClickListener;
 
-    // Long click handler
+    // Long click & fling handler
     private Handler handler;
     private static final int MESSAGE_LONG_CLICK = 1;
+
+    // Message for when fling should be turned back on
+    private static final int MESSAGE_HANDLE_FLING = 2;
+    private boolean shouldAllowFling = true;
+
 
     // Paint objects created once and reused for efficiency
     private Paint bitmapPaint;
@@ -284,6 +296,15 @@ public class SubsamplingScaleImageView extends View {
     //The logical density of the display
     private float density;
 
+    private int mLeftBound = 0;
+    private int mRightBound = 0;
+    private int mBottomBound = 0;
+    private int mTopBound = 0;
+    private float mSecEventX;
+    private float mSecEventY;
+    private float mPrimEventX;
+    private float mPrimEventY;
+    private float mPrimSecStartTouchDistance;
 
     public SubsamplingScaleImageView(Context context, AttributeSet attr) {
         super(context, attr);
@@ -298,6 +319,8 @@ public class SubsamplingScaleImageView extends View {
                     SubsamplingScaleImageView.super.setOnLongClickListener(onLongClickListener);
                     performLongClick();
                     SubsamplingScaleImageView.super.setOnLongClickListener(null);
+                } else if (message.what == MESSAGE_HANDLE_FLING) {
+                    shouldAllowFling = true;
                 }
                 return true;
             }
@@ -497,8 +520,8 @@ public class SubsamplingScaleImageView extends View {
 
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (panEnabled && readySent && vTranslate != null && e1 != null && e2 != null && (Math.abs(e1.getX() - e2.getX()) > 50 || Math.abs(e1.getY() - e2.getY()) > 50) && (Math.abs(velocityX) > 500 || Math.abs(velocityY) > 500) && !isZooming) {
-                    PointF vTranslateEnd = new PointF(vTranslate.x + (velocityX * 0.25f), vTranslate.y + (velocityY * 0.25f));
+                if (panEnabled && readySent && vTranslate != null && e1 != null && e2 != null && (Math.abs(e1.getX() - e2.getX()) > 50 || Math.abs(e1.getY() - e2.getY()) > 50) && (Math.abs(velocityX) > 500 || Math.abs(velocityY) > 500) && !isZooming && shouldAllowFling) {
+                    PointF vTranslateEnd = new PointF(vTranslate.x + (velocityX * 0.23f), vTranslate.y + (velocityY * 0.23f));
                     float sCenterXEnd = ((getWidth()/2) - vTranslateEnd.x)/scale;
                     float sCenterYEnd = ((getHeight()/2) - vTranslateEnd.y)/scale;
                     new AnimationBuilder(new PointF(sCenterXEnd, sCenterYEnd)).withEasing(EASE_OUT_QUAD).withPanLimited(false).withOrigin(ORIGIN_FLING).start();
@@ -655,6 +678,11 @@ public class SubsamplingScaleImageView extends View {
                         // Abort all gestures on second touch
                         maxTouchCount = 0;
                     }
+
+                    mSecEventX = event.getX(1);
+                    mSecEventY = event.getY(1);
+                    mPrimSecStartTouchDistance = distance(mPrimEventX, mSecEventX, mPrimEventY, mSecEventY);
+
                     // Cancel long click timer
                     handler.removeMessages(MESSAGE_LONG_CLICK);
                 } else if (!isQuickScaling) {
@@ -664,9 +692,15 @@ public class SubsamplingScaleImageView extends View {
 
                     // Start long click timer
                     handler.sendEmptyMessageDelayed(MESSAGE_LONG_CLICK, 600);
+
+                    mPrimEventX = event.getX(0);
+                    mPrimEventY = event.getY(0);
+
                 }
                 return true;
             case MotionEvent.ACTION_MOVE:
+
+                Log.d(TAG, "onTouchEventInternal: Move EVENT");
                 boolean consumed = false;
                 if (maxTouchCount > 0) {
                     if (touchCount >= 2) {
@@ -821,7 +855,19 @@ public class SubsamplingScaleImageView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_2_UP:
+                Log.d(TAG, "onTouchEventInternal: FINGER RELEASE");
                 handler.removeMessages(MESSAGE_LONG_CLICK);
+
+                if (event.getPointerCount() < 2) {
+                    mSecEventX = -1;
+                    mSecEventY = -1;
+                }
+
+                if (event.getPointerCount() < 1) {
+                    mPrimEventX = -1;
+                    mPrimEventY = -1;
+                }
+
                 if (isQuickScaling) {
                     isQuickScaling = false;
                     if (!quickScaleMoved) {
@@ -830,6 +876,17 @@ public class SubsamplingScaleImageView extends View {
                 }
                 if (maxTouchCount > 0 && (isZooming || isPanning)) {
                     if (isZooming && touchCount == 2) {
+                        float diffPrimX = mPrimEventX - event.getX(0);
+                        float diffPrimY = mPrimEventY - event.getY(0);
+
+                        float diffSecX = mSecEventX - event.getX(1);
+                        float diffSecY = mSecEventY - event.getY(1);
+
+                        float currentDistance = distance(event.getX(0), event.getX(1), event.getY(0), event.getY(1));
+
+                        if (Math.abs(currentDistance - mPrimSecStartTouchDistance) > PINCH_THRESHOLD && (diffPrimX * diffSecX  <= 0 || diffPrimY * diffSecY <= 0)) {
+                            shouldAllowFling = false;
+                        }
                         // Convert from zoom to pan with remaining touch
                         isPanning = true;
                         vTranslateStart.set(vTranslate.x, vTranslate.y);
@@ -850,6 +907,7 @@ public class SubsamplingScaleImageView extends View {
                     }
                     // Trigger load of tiles now required
                     refreshRequiredTiles(true);
+                    handler.sendEmptyMessageDelayed(MESSAGE_HANDLE_FLING, MESSAGE_FLING_DELAY_MILLIS);
                     return true;
                 }
                 if (touchCount == 1) {
@@ -857,6 +915,7 @@ public class SubsamplingScaleImageView extends View {
                     isPanning = false;
                     maxTouchCount = 0;
                 }
+                handler.sendEmptyMessageDelayed(MESSAGE_HANDLE_FLING, MESSAGE_FLING_DELAY_MILLIS);
                 return true;
         }
         return false;
@@ -1353,9 +1412,12 @@ public class SubsamplingScaleImageView extends View {
         PointF vTranslate = sat.vTranslate;
         float scale = limitedScale(sat.scale);
         float scaleWidth = scale * sWidth();
-        float scaleHeight = scale * sHeight();
+        float scaleHeight = scale * (sHeight());
 
-        if (panLimit == PAN_LIMIT_CENTER && isReady()) {
+        if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
+            vTranslate.x = Math.max(vTranslate.x, getWidth() - scaleWidth - getRightBound());
+            vTranslate.y = Math.max(vTranslate.y, getHeight() - scaleHeight - getBottomBound());
+        } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             vTranslate.x = Math.max(vTranslate.x, getWidth()/2 - scaleWidth);
             vTranslate.y = Math.max(vTranslate.y, getHeight()/2 - scaleHeight);
         } else if (center) {
@@ -1372,7 +1434,16 @@ public class SubsamplingScaleImageView extends View {
 
         float maxTx;
         float maxTy;
-        if (panLimit == PAN_LIMIT_CENTER && isReady()) {
+
+        if (panLimit == PAN_LIMIT_CUSTOM && isReady()) {
+            maxTx = Math.max(0, getLeftBound());
+
+            if (getTopBound() == 0) {
+                maxTy = Math.max(0, (getHeight() - scaleHeight) * yPaddingRatio);
+            } else {
+                maxTy = Math.max(0, getTopBound());
+            }
+        } else if (panLimit == PAN_LIMIT_CENTER && isReady()) {
             maxTx = Math.max(0, getWidth()/2);
             maxTy = Math.max(0, getHeight()/2);
         } else if (center) {
@@ -2163,9 +2234,18 @@ public class SubsamplingScaleImageView extends View {
                 return easeInOutQuad(time, from, change, duration);
             case EASE_OUT_QUAD:
                 return easeOutQuad(time, from, change, duration);
+            case EASE_OVERSHOOT:
+                return easeOvershoot(time, from, change, duration);
             default:
                 throw new IllegalStateException("Unexpected easing type: " + type);
         }
+    }
+
+    private float easeOvershoot(long time, float from, float change, long duration) {
+        float progress = (float)time/(float)duration;
+        progress -= 1.0f;
+
+        return progress * progress + ((2.0f + 1) * progress + 2.0f) + 1.0f;
     }
 
     /**
@@ -2368,6 +2448,38 @@ public class SubsamplingScaleImageView extends View {
         int mX = getWidth()/2;
         int mY = getHeight()/2;
         return viewToSourceCoord(mX, mY);
+    }
+
+    public int getLeftBound() {
+        return mLeftBound;
+    }
+
+    public void setLeftBound(int leftBound) {
+        mLeftBound = leftBound;
+    }
+
+    public int getRightBound() {
+        return mRightBound;
+    }
+
+    public void setRightBound(int rightBound) {
+        mRightBound = rightBound;
+    }
+
+    public int getBottomBound() {
+        return mBottomBound;
+    }
+
+    public void setBottomBound(int bottomBound) {
+        mBottomBound = bottomBound;
+    }
+
+    public int getTopBound() {
+        return mTopBound;
+    }
+
+    public void setTopBound(int topBound) {
+        mTopBound = topBound;
     }
 
     /**
